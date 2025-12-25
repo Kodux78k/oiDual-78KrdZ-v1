@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Dual.Vault v9 - Infinity</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<meta name="theme-color" content="#050505">
+
+<link rel="manifest" href="./manifest.json">
+  <meta name="theme-color" content="#050505"> <link rel="apple-touch-icon" href="./icon-192.png">
+  
+  <script>
+// Service Worker Register (Opcional)
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("./sw.js").catch(e => console.log("SW: Off"));
+}
+</script>
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&family=JetBrains+Mono:wght@400;700&display=swap');
+
+:root {
+    --bg: #050505;
+    --glass: rgba(30, 30, 30, 0.4);
+    --border: rgba(255, 255, 255, 0.08);
+    --neon-p: #23ac51; /* Verde Cyber */
+    --neon-o: #f97316; /* Laranja Hub */
+    --neon-b: #3b82f6; /* Azul Warframe */
+    --neon-r: #ef4444; /* Vermelho Erro */
+}
+
+body {
+    background: var(--bg);
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 20px 10px; min-height: 100vh; color: #e2e8f0;
+    overflow-x: hidden;
+}
+
+/* --- CARD SYSTEM --- */
+.master-card {
+    width: 100%; max-width: 460px;
+    background: var(--glass); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+    border-radius: 24px; border: 1px solid var(--border);
+    margin-bottom: 16px; position: relative; overflow: hidden;
+    transition: transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+}
+
+.master-card:focus-within { border-color: var(--neon-b); box-shadow: 0 0 15px rgba(59, 130, 246, 0.2); }
+
+.inner { padding: 14px; }
+
+/* HEADER */
+.header { display: flex; justify-content: space-between; align-items: center; min-height: 44px; }
+.title-group { flex-grow: 1; cursor: pointer; display: flex; flex-direction: column; overflow: hidden; }
+.card-title { font-weight: 800; font-size: 14px; color: #f8fafc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.card-meta { font-size: 10px; color: #94a3b8; font-family: 'JetBrains Mono', monospace; display: flex; gap: 8px; align-items: center; margin-top: 2px;}
+.tag-badge { background: rgba(255,255,255,0.1); padding: 1px 6px; border-radius: 4px; color: var(--neon-p); }
+
+/* DOCK DE AÇÃO */
+.dock { display: flex; gap: 6px; align-items: center; padding-left: 8px;}
+.ico {
+    width: 34px; height: 34px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05);
+    color: #cbd5e1; cursor: pointer; transition: all 0.2s;
+    flex-shrink: 0;
+}
+.ico:hover { background: rgba(255,255,255,0.1); color: white; transform: scale(1.05); }
+.ico:active { transform: scale(0.95); }
+
+/* CORES DE AÇÃO */
+.ico.flash { color: var(--neon-o); border-color: rgba(249, 115, 22, 0.3); }
+.ico.tts { color: var(--neon-b); }
+.ico.share { color: #10b981; }
+.ico.del:hover { background: #ef4444; color: white; border-color: #ef4444; }
+
+/* BOTÃO RUN MODE */
+#runModeBtn {
+    font-size: 9px; font-weight: 800; width: auto; padding: 0 8px;
+    letter-spacing: 0.5px; border-width: 1px;
+}
+.mode-safe { color: var(--neon-p); border-color: rgba(35, 172, 81, 0.3) !important; }
+.mode-raw { color: var(--neon-r); border-color: rgba(239, 68, 68, 0.4) !important; box-shadow: 0 0 8px rgba(239, 68, 68, 0.1); }
+
+/* CONTEÚDO EXPANSÍVEL */
+.content-box {
+    max-height: 0; overflow: hidden; opacity: 0;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.expanded .content-box { max-height: 800px; opacity: 1; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+
+/* INPUTS & WARFRAME */
+.code-area {
+    width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--border);
+    border-radius: 12px; padding: 12px; color: #e2e8f0;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; line-height: 1.5;
+    outline: none; resize: vertical; min-height: 100px;
+}
+
+.warframe-view {
+    width: 100%; height: 300px; border: none; 
+    background: white; border-radius: 12px; margin-top: 8px;
+    box-shadow: inset 0 0 20px rgba(0,0,0,0.1);
+}
+
+/* CAMADA EXTERNA (Inject Outside) */
+#ext-layer { width: 100%; max-width: 460px; margin-bottom: 20px; display: flex; flex-direction: column; gap: 10px; }
+.ext-card-wrap { animation: slideIn 0.3s ease; }
+@keyframes slideIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+
+/* GROUP FILTER */
+.filter-bar {
+    width: 100%; max-width: 460px; display: flex; gap: 10px; margin-bottom: 15px; overflow-x: auto; padding-bottom: 5px;
+}
+.filter-pill {
+    background: var(--glass); border: 1px solid var(--border); color: #94a3b8;
+    padding: 6px 16px; border-radius: 20px; font-size: 11px; font-weight: 600;
+    cursor: pointer; white-space: nowrap; transition: 0.2s;
+}
+.filter-pill.active { background: var(--neon-p); color: white; border-color: var(--neon-p); }
+</style>
+</head>
+<body>
+
+<div id="ext-layer"></div>
+
+<div class="filter-bar" id="filterBar">
+    <div class="filter-pill active" onclick="filterVault('ALL')">ALL</div>
+    <div class="filter-pill" onclick="filterVault('CODE')">CODE</div>
+    <div class="filter-pill" onclick="filterVault('DOCS')">DOCS</div>
+    <div class="filter-pill" onclick="filterVault('DEMO')">DEMO</div>
+</div>
+
+<div class="master-card" id="main">
+    <div class="inner">
+        <div class="header">
+            <div class="title-group" onclick="toggle('main')">
+                <span class="card-title" style="letter-spacing: 1px; color: var(--neon-o);">⚡ INFINITY INJECTOR</span>
+                <span class="card-meta">VAULT_v9 • OMEGA_READY</span>
+            </div>
+            <div class="dock">
+                <button class="ico flash" onclick="magicPaste()" title="Clipboard Turbo Save">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
+                </button>
+
+                <button id="runModeBtn" class="ico mode-safe" onclick="toggleRunMode()" title="Mudar Modo de Execução">
+                  SAFE
+                </button>
+
+                <button class="ico" onclick="toggle('main')">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                </button>
+            </div>
+        </div>
+        
+        <div class="content-box">
+            <div style="position: relative;">
+                <textarea id="mainInput" class="code-area" rows="4" placeholder="Cole código, HTML ou texto aqui..."></textarea>
+                <button onclick="pasteToInput()" style="position: absolute; bottom: 8px; right: 8px; background: var(--neon-p); color: white; border: none; padding: 4px 10px; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer;">
+                  PASTE
+                </button>
+            </div>
+            
+            <div style="display: flex; gap: 8px; margin-top: 10px;">
+                <input id="mainGroup" placeholder="(Group)" style="background:transparent; border:1px solid var(--border); color:white; padding:8px; border-radius:8px; width: 25%; font-size: 11px;">
+                
+                <button class="ico" style="flex:1; border-radius: 8px; width:auto; font-size: 11px; font-weight:700; gap:6px;" onclick="saveManual()">
+                   SAVE
+                </button>
+                <button class="ico" style="flex:1; border-radius: 8px; width:auto; font-size: 11px; font-weight:700; gap:6px; color: var(--neon-b); border-color: rgba(59,130,246,0.3);" onclick="injectExternal()">
+                   VISUAL
+                </button>
+                <input type="file" id="importFile" accept=".json,.html,.htm,.md,.txt,.js,.css" style="display:none" onchange="importBackup(event)">
+                <button class="ico" style="flex:0 0 40px; border-radius: 8px; font-size: 11px; font-weight:700;" onclick="document.getElementById('importFile').click()" title="Import File">
+                   📂
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="vault" style="width: 100%; max-width: 460px;"></div>
+
+<script>
+// --- OMEGA DEMO CONTENT (Embedded) ---
+const OMEGA_DEMO_CODE = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <title>DUAL // OMEGA — Unified Runtime</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <script src="https://unpkg.com/lucide@latest"><\/script>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;500;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    :root { --bg-deep: #030406; --neon-cyan: #00f2ff; --neon-purple: #bd00ff; --font-ui: 'Montserrat', sans-serif; }
+    body { background: var(--bg-deep); color: #fff; font-family: var(--font-ui); padding: 20px; overflow-x:hidden; }
+    .fusion-card { background: rgba(18, 18, 22, 0.75); backdrop-filter: blur(40px); border: 1px solid rgba(255,255,255,0.08); border-radius: 32px; padding: 24px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); text-align:center; animation: pop 0.6s cubic-bezier(0.34, 1.3, 0.64, 1); }
+    .brand-title { font-size: 2rem; font-weight: 900; background: linear-gradient(to right, #fff, var(--neon-cyan)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 10px; }
+    .status-dot { width: 10px; height: 10px; background: #23ac51; border-radius: 50%; display:inline-block; box-shadow: 0 0 10px #23ac51; }
+    @keyframes pop { from { opacity:0; transform:scale(0.9); } to { opacity:1; transform:scale(1); } }
+  </style>
+</head>
+<body>
+  <div class="fusion-card">
+    <div class="brand-title">DUAL // OMEGA</div>
+    <div style="font-family:'JetBrains Mono'; font-size:0.8rem; color:#888;">
+      <span class="status-dot"></span> SYSTEM ONLINE
+    </div>
+    <p style="margin-top:20px; line-height:1.6;">Bem-vindo ao <b>Omega Runtime</b>. Esta é uma demonstração de HTML5 + CSS3 rodando dentro do Dual.Vault v9.</p>
+    <div style="margin-top:30px;">
+      <i data-lucide="cpu" size="48" color="#bd00ff"></i>
+    </div>
+    <script>
+      lucide.createIcons();
+      console.log("Omega Init Safe.");
+    <\/script>
+  </div>
+</body>
+</html>`;
+
+// --- CORE LOGIC ---
+let items = JSON.parse(localStorage.getItem('vault_v9') || '[]');
+let currentFilter = 'ALL';
+let editingId = null;
+
+// --- RUN MODE GLOBAL ---
+let RUN_MODE = localStorage.getItem('vault_run_mode') || 'SAFE'; // SAFE or RAW
+
+function setRunMode(mode){
+  RUN_MODE = mode === 'RAW' ? 'RAW' : 'SAFE';
+  localStorage.setItem('vault_run_mode', RUN_MODE);
+  updateRunModeUI();
+  // Se mudar o modo, fechar previews abertos para segurança
+  render(); 
+}
+function toggleRunMode(){
+  if(RUN_MODE === 'SAFE') {
+      if(!confirm("⚠️ ATENÇÃO: O modo RAW permite 'allow-same-origin'. Scripts maliciosos podem acessar dados locais. Use apenas com código confiável.\n\nAtivar RAW Mode?")) return;
+  }
+  setRunMode(RUN_MODE === 'SAFE' ? 'RAW' : 'SAFE');
+}
+function updateRunModeUI(){
+  const btn = document.getElementById('runModeBtn');
+  if(!btn) return;
+  btn.textContent = RUN_MODE;
+  if(RUN_MODE === 'RAW') {
+      btn.className = 'ico mode-raw';
+  } else {
+      btn.className = 'ico mode-safe';
+  }
+}
+
+// Check init demo
+if(items.length === 0) {
+    console.log("Vault vazio. Injetando Omega Demo...");
+    const demoItem = {
+        id: Date.now(),
+        title: "DUAL // OMEGA (Demo)",
+        content: OMEGA_DEMO_CODE,
+        group: "DEMO",
+        date: new Date().toLocaleDateString(),
+        type: 'html',
+        allowScripts: true // Demo é confiável
+    };
+    items.push(demoItem);
+    localStorage.setItem('vault_v9', JSON.stringify(items));
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    updateRunModeUI();
+    render();
+});
+
+// --- RENDERIZAÇÃO ---
+function render() {
+    const v = document.getElementById('vault');
+    const filtered = currentFilter === 'ALL' ? items : items.filter(i => (i.group || '').toUpperCase() === currentFilter);
+    
+    v.innerHTML = filtered.map(i => {
+        const isEditing = editingId === i.id;
+        
+        if (isEditing) {
+            return `
+            <div class="master-card expanded" id="card-${i.id}">
+                <div class="inner">
+                    <div class="header">
+                        <input id="edit-title-${i.id}" value="${escapeHtml(i.title)}" class="code-area" style="height:34px; min-height:auto; padding:5px 10px; width: 60%;">
+                        <input id="edit-group-${i.id}" value="${escapeHtml(i.group||'')}" class="code-area" style="height:34px; min-height:auto; padding:5px 10px; width: 20%; margin-left:5px;">
+                        <div class="dock" style="margin-left: auto;">
+                            <button class="ico flash" onclick="saveEdit(${i.id})">✓</button>
+                            <button class="ico del" onclick="cancelEdit()">✕</button>
+                        </div>
+                    </div>
+                    <div class="content-box" style="opacity:1; max-height:none;">
+                        <textarea id="edit-content-${i.id}" class="code-area" rows="8">${escapeHtml(i.content)}</textarea>
+                    </div>
+                </div>
+            </div>`;
+        }
+        
+        // MODO VISUALIZAÇÃO
+        const isHtml = i.type === 'html';
+        const scriptStatusColor = i.allowScripts ? 'var(--neon-o)' : '#94a3b8';
+
+        return `
+        <div class="master-card" id="card-${i.id}">
+            <div class="inner">
+                <div class="header">
+                    <div class="title-group" onclick="toggle('card-${i.id}')">
+                        <div style="display:flex; justify-content:space-between; width:100%;">
+                            <span class="card-title">${escapeHtml(i.title)}</span>
+                            <span class="card-meta">${(i.date||'').split(' ')[0]}</span>
+                        </div>
+                        <span class="card-meta">
+                            ${i.group ? `<span class="tag-badge">${escapeHtml(i.group)}</span>` : ''} 
+                            ID:${i.id.toString().slice(-4)}
+                        </span>
+                    </div>
+                    
+                    <div class="dock">
+                        <button class="ico tts" onclick="event.stopPropagation(); speakCard(${i.id})" title="TTS">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg>
+                        </button>
+
+                        <button class="ico share" onclick="event.stopPropagation(); shareCard(${i.id})" title="Share">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+                        </button>
+
+                        <button class="ico" onclick="event.stopPropagation(); toggleRender(${i.id})" title="Preview/Run">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+                        </button>
+
+                        ${isHtml ? `
+                            <button class="ico" onclick="event.stopPropagation(); toggleCardExec(${i.id})" title="JS: ${i.allowScripts ? 'ON' : 'OFF'}" style="color:${scriptStatusColor}; font-weight:800; font-size:9px;">
+                              JS
+                            </button>
+                        ` : ''}
+
+                        <button class="ico" onclick="event.stopPropagation(); startEdit(${i.id})" title="Editar">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                        </button>
+
+                         <button class="ico del" onclick="event.stopPropagation(); deleteCard(${i.id})" title="Deletar">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="content-box" id="box-${i.id}">
+                    <textarea readonly class="code-area" id="txt-${i.id}" style="border:none; padding:0; background:transparent;">${escapeHtml(i.content)}</textarea>
+                    <div id="frame-container-${i.id}" style="display:none;"></div>
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+// Helpers
+function escapeHtml(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// --- LÓGICA ---
+
+function toggle(id) {
+    if(editingId && editingId !== `card-${id}` && id !== 'main') cancelEdit();
+    const el = document.getElementById(id);
+    if(el) el.classList.toggle('expanded');
+}
+
+function createCard(content, group = "", opts = {}) {
+    const lines = String(content||'').trim().split('\n');
+    let title = (lines[0] || '').substring(0, 35).replace(/[#<*]/g,'').trim() || "Sem Título";
+    // Tenta pegar titulo de tag html title se existir
+    if(opts.type === 'html') {
+        const match = content.match(/<title>(.*?)<\/title>/i);
+        if(match) title = match[1];
+    }
+
+    const now = new Date();
+    const item = { 
+        id: Date.now() + Math.floor(Math.random()*999),
+        title, 
+        content, 
+        group: (group||'').toUpperCase(), 
+        date: now.toLocaleDateString('pt-BR') + ' ' + now.toLocaleTimeString('pt-BR').slice(0,5),
+        type: opts.type || guessTypeFromContent(content),
+        allowScripts: !!opts.allowScripts
+    };
+    items.unshift(item);
+    save();
+}
+
+function guessTypeFromContent(content){
+  const c = String(content).trim();
+  if(/<\s*html|<\s*body|<\s*script|<!doctype html/i.test(c) || /<\s*div|<\s*iframe|<\s*section/i.test(c)) return 'html';
+  return 'text';
+}
+
+function toggleCardExec(id){
+    const item = items.find(i => i.id === id);
+    if(!item) return;
+    item.allowScripts = !item.allowScripts;
+    save(); // re-render
+    toast('Scripts: ' + (item.allowScripts ? 'ON' : 'OFF'));
+}
+
+// Render Engine com Sandbox Inteligente
+function toggleRender(id) {
+    const txt = document.getElementById(`txt-${id}`);
+    const frameBox = document.getElementById(`frame-container-${id}`);
+    const item = items.find(i => i.id === id);
+
+    if (!item) return;
+
+    if (frameBox.style.display === 'none' || frameBox.innerHTML === '') {
+        // Abrir
+        txt.style.display = 'none';
+        frameBox.style.display = 'block';
+        frameBox.innerHTML = '';
+
+        // Toolbar Interna
+        const toolbar = document.createElement('div');
+        toolbar.style.cssText = "display:flex; justify-content:flex-end; gap:8px; margin-bottom:6px;";
+
+        // Expand/Cinema
+        const btnExpand = document.createElement('button');
+        btnExpand.innerHTML = '⛶ Full';
+        btnExpand.className = 'tag-badge';
+        btnExpand.style.cursor = 'pointer';
+        btnExpand.onclick = (e) => { e.stopPropagation(); openCinema(item); };
+        toolbar.appendChild(btnExpand);
+
+        // Close
+        const btnClose = document.createElement('button');
+        btnClose.innerText = '✖ Close';
+        btnClose.className = 'tag-badge';
+        btnClose.style.cursor = 'pointer';
+        btnClose.onclick = (e) => { e.stopPropagation(); closePreview(id); };
+        toolbar.appendChild(btnClose);
+
+        frameBox.appendChild(toolbar);
+
+        // Iframe Logic
+        const iframe = document.createElement('iframe');
+        iframe.className = 'warframe-view';
+        iframe.setAttribute('sandbox', getSandboxRules(item));
+        frameBox.appendChild(iframe);
+
+        try {
+            const doc = iframe.contentWindow.document;
+            doc.open();
+            doc.write(item.content);
+            doc.close();
+        } catch (e) {
+            console.warn(e);
+            frameBox.innerHTML += '<div style="color:red; padding:10px;">Erro de Render. Tente Modo RAW.</div>';
+        }
+
+    } else {
+        closePreview(id);
+    }
+}
+
+function closePreview(id) {
+    document.getElementById(`txt-${id}`).style.display = 'block';
+    const fb = document.getElementById(`frame-container-${id}`);
+    fb.style.display = 'none';
+    fb.innerHTML = '';
+}
+
+function openCinema(item) {
+    const fs = document.createElement('div');
+    fs.style.cssText = "position:fixed; inset:0; z-index:9999; background:#000; display:flex; flex-direction:column;";
+    
+    const bar = document.createElement('div');
+    bar.style.cssText = "padding:10px; background:#111; display:flex; justify-content:space-between; align-items:center;";
+    bar.innerHTML = `<span style="font-weight:bold; color:#fff;">${escapeHtml(item.title)}</span>`;
+    
+    const closeBtn = document.createElement('button');
+    closeBtn.innerText = "FECHAR";
+    closeBtn.style.cssText = "background:#ef4444; color:white; border:none; padding:5px 12px; border-radius:4px; font-weight:bold; cursor:pointer;";
+    closeBtn.onclick = () => fs.remove();
+    
+    bar.appendChild(closeBtn);
+    fs.appendChild(bar);
+
+    const fr = document.createElement('iframe');
+    fr.style.cssText = "flex:1; border:none; background:#fff;";
+    fr.setAttribute('sandbox', getSandboxRules(item));
+    
+    fs.appendChild(fr);
+    document.body.appendChild(fs);
+
+    const doc = fr.contentWindow.document;
+    doc.open();
+    doc.write(item.content);
+    doc.close();
+}
+
+function getSandboxRules(item) {
+    if(item.type !== 'html') return 'allow-forms allow-popups';
+    
+    // Base rules
+    let rules = ['allow-forms', 'allow-modals', 'allow-popups'];
+    
+    if(item.allowScripts) {
+        rules.push('allow-scripts');
+        // RAW MODE permite same-origin (perigoso, mas necessário para alguns apps)
+        if(RUN_MODE === 'RAW') {
+            rules.push('allow-same-origin');
+        }
+    }
+    return rules.join(' ');
+}
+
+// --- CRUD & UTILS ---
+
+async function shareCard(id) {
+    const item = items.find(i => i.id === id);
+    if (navigator.share) {
+        try { await navigator.share({ title: item.title, text: item.content }); } catch (err) {}
+    } else {
+        navigator.clipboard.writeText(item.content);
+        toast("Copiado!");
+    }
+}
+
+function speakCard(id) {
+    const item = items.find(i => i.id === id);
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(item.content);
+    u.lang = "pt-BR";
+    window.speechSynthesis.speak(u);
+}
+
+function injectExternal() {
+    const val = document.getElementById('mainInput').value;
+    const title = val.split('\n')[0].substring(0,20) || "Visual";
+    const type = guessTypeFromContent(val);
+    createCard(val, 'VISUAL', { type, allowScripts: false });
+    
+    // UI Feedback fake card
+    const d = document.createElement('div');
+    d.innerHTML = `<div class="master-card ext-card-wrap"><div class="inner"><span style="color:var(--neon-b)">🚀 ${escapeHtml(title)}</span></div></div>`;
+    document.getElementById('ext-layer').appendChild(d);
+    setTimeout(()=>d.remove(), 2000);
+    document.getElementById('mainInput').value = '';
+}
+
+function importBackup(ev) {
+    const file = ev.target.files ? ev.target.files[0] : null;
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = e => {
+        const text = e.target.result;
+        const name = (file.name||'').toLowerCase();
+
+        try {
+            if (name.endsWith('.json')) {
+                const data = JSON.parse(text);
+                if (Array.isArray(data)) {
+                    data.forEach(c => {
+                        c.id = Date.now() + Math.floor(Math.random()*9999);
+                        if(c.type === undefined) c.type = guessTypeFromContent(c.content);
+                        items.unshift(c);
+                    });
+                    save();
+                    toast("Backup Restaurado");
+                }
+                return;
+            }
+            // Importar HTML/TXT
+            const isHtml = name.endsWith('.html') || name.endsWith('.htm');
+            createCard(text, 'IMPORT', { type: isHtml ? 'html' : 'text', allowScripts: false }); // Sempre OFF por padrão
+            toast("Arquivo Importado (Scripts OFF)");
+
+        } catch (err) { alert("Erro ao ler arquivo."); }
+    };
+    reader.readAsText(file);
+}
+
+function startEdit(id) { editingId = id; render(); }
+function cancelEdit() { editingId = null; render(); }
+function saveEdit(id) {
+    const item = items.find(i => i.id === id);
+    item.title = document.getElementById(`edit-title-${id}`).value;
+    item.group = document.getElementById(`edit-group-${id}`).value.toUpperCase();
+    item.content = document.getElementById(`edit-content-${id}`).value;
+    editingId = null;
+    save();
+}
+function deleteCard(id) { if(confirm('Deletar?')) { items = items.filter(i => i.id !== id); save(); } }
+function filterVault(filter) { 
+    currentFilter = filter; 
+    document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
+    // Encontra o pill correto (dirty fix)
+    const pills = document.querySelectorAll('.filter-pill');
+    for(let p of pills) if(p.innerText === filter) p.classList.add('active');
+    render(); 
+}
+function save() { localStorage.setItem('vault_v9', JSON.stringify(items)); render(); }
+async function magicPaste() {
+    try {
+        const text = await navigator.clipboard.readText();
+        if(!text) return;
+        createCard(text, "CLIPBOARD");
+        toast("Card Criado!");
+    } catch(e) { alert("Sem permissão de colar"); }
+}
+async function pasteToInput() {
+    try {
+        const text = await navigator.clipboard.readText();
+        document.getElementById('mainInput').value += text;
+    } catch(e) {}
+}
+function saveManual() {
+    const val = document.getElementById('mainInput').value;
+    const grp = document.getElementById('mainGroup').value;
+    if(val) { createCard(val, grp); document.getElementById('mainInput').value = ''; }
+}
+function toast(m){ 
+    const t=document.createElement('div'); 
+    t.style.cssText="position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:#333; color:#fff; padding:8px 16px; border-radius:20px; z-index:9999; font-size:12px;";
+    t.textContent=m; document.body.appendChild(t); 
+    setTimeout(()=>t.remove(),2000);
+}
+</script>
+</body>
+</html>
